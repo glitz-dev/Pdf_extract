@@ -1,15 +1,16 @@
 from fastapi import FastAPI
 import PyPDF2
+from hipaathesis import analyze as hipaa_analyze, AnalyzeReq
 # import your other modules as needed
 
 app = FastAPI(title="HIPAA Thesis App")
 
+# Endpoint for Main page
 @app.get("/")
 def home():
     return {"message": "HIPAA Thesis App is running"}
 
-# Example endpoint for processing PDF (replace with your logic)
-@app.post("/process_pdf")
-def process_pdf(file_path: str):
-    # Add your PDF processing logic from hipaathesis.py
-    return {"status": "processed", "file": file_path}
+# Endpoint for processing PDF 
+@app.post("/analyze")
+def analyze(req: AnalyzeReq):
+    return hipaa_analyze(req)
