@@ -42,7 +42,7 @@ except ImportError:
 warnings.filterwarnings('ignore')
 
 app = FastAPI(title='AI (PDF→Summary+QnA+Scores)', version='0.2.1')
-app.mount("/test", StaticFiles(directory="test"), name="test")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class HIPAALogger:
     """HIPAA-compliant audit logging system"""
