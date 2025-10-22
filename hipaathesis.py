@@ -6,21 +6,20 @@ import nltk
 
 # Set NLTK data path BEFORE any other NLTK imports
 def setup_nltk_data():
-    """Setup NLTK data directory in user-writable location"""
+    """Setup NLTK data directory in container-writable location"""
     try:
-        # Create a user-writable directory for NLTK data
-        nltk_data_dir = os.path.join(os.path.expanduser('~'), 'nltk_data')
+        # Use the app directory for NLTK data in container
+        nltk_data_dir = '/app/nltk_data'
+        
+        # Ensure directory exists and is writable
         os.makedirs(nltk_data_dir, exist_ok=True)
         
-        # Set NLTK data path to user directory - this must be done first
-        nltk.data.path.insert(0, nltk_data_dir)  # Use insert(0, ...) to make it first priority
+        # Set NLTK data path - this must be done first
+        nltk.data.path.clear()
+        nltk.data.path.append(nltk_data_dir)
         
         # Also set the NLTK_DATA environment variable
         os.environ['NLTK_DATA'] = nltk_data_dir
-        
-        # Clear any existing paths that might cause issues
-        nltk.data.path.clear()
-        nltk.data.path.append(nltk_data_dir)
         
         # Download required resources if not present
         required_resources = [
@@ -94,7 +93,12 @@ class HIPAALogger:
     """HIPAA-compliant audit logging system"""
     
     def __init__(self, log_file="hipaa_audit.log"):
-        self.log_file = log_file
+        # Create logs directory if it doesn't exist
+        log_dir = '/app/logs'
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Use the new log file path
+        self.log_file = os.path.join(log_dir, log_file)
         self.logger = None
         self.setup_logging()
     
