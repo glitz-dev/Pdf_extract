@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
     libtesseract-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Set NLTK data directory environment variable
+ENV NLTK_DATA=/app/nltk_data
+
 WORKDIR /app
 COPY . /app
 
