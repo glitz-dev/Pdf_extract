@@ -49,17 +49,39 @@ class HIPAALogger:
     
     def __init__(self, log_file="hipaa_audit.log"):
         self.log_file = log_file
+        self.logger = None
         self.setup_logging()
     
     def setup_logging(self):
-        """Setup secure audit logging"""
-        logging.basicConfig(
-            filename=self.log_file,
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        self.logger = logging.getLogger('HIPAA_AUDIT')
+        """Setup secure audit logging with fallback to console"""
+        try:
+            # Try to create file handler
+            logging.basicConfig(
+                filename=self.log_file,
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            self.logger = logging.getLogger('HIPAA_AUDIT')
+            print(f"HIPAA logging initialized: {self.log_file}")
+        except PermissionError:
+            # Fallback to console logging if file writing fails
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            self.logger = logging.getLogger('HIPAA_AUDIT')
+            print(f"Warning: Cannot write to {self.log_file}, using console logging")
+        except Exception as e:
+            # Fallback to console logging for any other error
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            self.logger = logging.getLogger('HIPAA_AUDIT')
+            print(f"Warning: Logging setup failed ({e}), using console logging")
     
     def log_access(self, user_id, action, resource, success=True):
         """Log access attempts and actions"""
@@ -111,13 +133,43 @@ class SecureFileHandler:
     
     def secure_save(self, data, filepath):
         """Save data with encryption"""
-        if self.fernet:
-            encrypted_data = self.encrypt_data(json.dumps(data))
-            with open(filepath + '.enc', 'wb') as f:
-                f.write(encrypted_data)
-        else:
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2)
+        try:
+            if self.fernet:
+                encrypted_data = self.encrypt_data(json.dumps(data))
+                with open(filepath + '.enc', 'wb') as f:
+                    f.write(encrypted_data)
+            else:
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2)
+        except PermissionError:
+            print(f"Warning: Cannot write to {filepath}, saving to /tmp instead")
+            # Fallback to /tmp directory
+            import tempfile
+            temp_path = os.path.join(tempfile.gettempdir(), os.path.basename(filepath))
+            if self.fernet:
+                encrypted_data = self.encrypt_data(json.dumps(data))
+                with open(temp_path + '.enc', 'wb') as f:
+                    f.write(encrypted_data)
+            else:
+                with open(temp_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2)
+            print(f"Data saved to: {temp_path}")
+        except Exception as e:
+            print(f"Error saving data: {e}")
+            # Still try to save to /tmp as last resort
+            try:
+                import tempfile
+                temp_path = os.path.join(tempfile.gettempdir(), os.path.basename(filepath))
+                if self.fernet:
+                    encrypted_data = self.encrypt_data(json.dumps(data))
+                    with open(temp_path + '.enc', 'wb') as f:
+                        f.write(encrypted_data)
+                else:
+                    with open(temp_path, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, indent=2)
+                print(f"Data saved to fallback location: {temp_path}")
+            except Exception as fallback_error:
+                print(f"Failed to save data even to fallback location: {fallback_error}")
     
     def secure_load(self, filepath):
         """Load encrypted data"""
