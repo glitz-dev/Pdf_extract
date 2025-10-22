@@ -13,6 +13,9 @@ ENV NLTK_DATA=/app/nltk_data
 WORKDIR /app
 COPY . /app
 
+# Create NLTK data directory with proper permissions
+RUN mkdir -p /app/nltk_data && chmod 755 /app/nltk_data
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 7860
