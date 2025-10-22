@@ -15,6 +15,13 @@ def setup_nltk_data():
         # Set NLTK data path to user directory - this must be done first
         nltk.data.path.insert(0, nltk_data_dir)  # Use insert(0, ...) to make it first priority
         
+        # Also set the NLTK_DATA environment variable
+        os.environ['NLTK_DATA'] = nltk_data_dir
+        
+        # Clear any existing paths that might cause issues
+        nltk.data.path.clear()
+        nltk.data.path.append(nltk_data_dir)
+        
         # Download required resources if not present
         required_resources = [
             'punkt',
@@ -275,8 +282,19 @@ class HIPAACompliantThesisAnalyzer:
         except LookupError as e:
             print(f"NLTK resource error: {e}")
             self._download_nltk_resources()
-            self.lemmatizer = WordNetLemmatizer()
-            self.stop_words = set(stopwords.words('english'))
+            try:
+                self.lemmatizer = WordNetLemmatizer()
+                self.stop_words = set(stopwords.words('english'))
+            except Exception as e2:
+                print(f"Failed to initialize NLTK after download: {e2}")
+                # Fallback to basic functionality
+                self.lemmatizer = None
+                self.stop_words = set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'])
+        except Exception as e:
+            print(f"Error initializing NLTK: {e}")
+            # Fallback to basic functionality
+            self.lemmatizer = None
+            self.stop_words = set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'])
 
         self.thesis_text = ""
         self.sentences = []
@@ -631,13 +649,25 @@ class HIPAACompliantThesisAnalyzer:
         """Extract key terms securely"""
         try:
             words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
-            words = [
-                self.lemmatizer.lemmatize(word)
-                for word in words
-                if word not in self.stop_words
-                   and len(word) > 3
-                   and word.isalpha()
-            ]
+            
+            # Handle case where lemmatizer might be None
+            if self.lemmatizer is not None:
+                words = [
+                    self.lemmatizer.lemmatize(word)
+                    for word in words
+                    if word not in self.stop_words
+                       and len(word) > 3
+                       and word.isalpha()
+                ]
+            else:
+                # Fallback without lemmatization
+                words = [
+                    word
+                    for word in words
+                    if word not in self.stop_words
+                       and len(word) > 3
+                       and word.isalpha()
+                ]
 
             word_freq = Counter(words)
             return [term for term, freq in word_freq.most_common(20)]
