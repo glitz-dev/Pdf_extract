@@ -44,6 +44,41 @@ warnings.filterwarnings('ignore')
 app = FastAPI(title='AI (PDF→Summary+QnA+Scores)', version='0.2.1')
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+def setup_nltk_data():
+    """Setup NLTK data directory in user-writable location"""
+    try:
+        # Create a user-writable directory for NLTK data
+        nltk_data_dir = os.path.join(os.path.expanduser('~'), 'nltk_data')
+        os.makedirs(nltk_data_dir, exist_ok=True)
+        
+        # Set NLTK data path to user directory
+        nltk.data.path.append(nltk_data_dir)
+        
+        # Download required resources if not present
+        required_resources = [
+            'punkt',
+            'punkt_tab', 
+            'stopwords',
+            'wordnet',
+            'omw-1.4'
+        ]
+        
+        for resource in required_resources:
+            try:
+                nltk.data.find(f'tokenizers/{resource}' if 'punkt' in resource else f'corpora/{resource}')
+            except LookupError:
+                try:
+                    nltk.download(resource, download_dir=nltk_data_dir, quiet=True)
+                    print(f"Downloaded NLTK resource: {resource}")
+                except Exception as e:
+                    print(f"Warning: Could not download {resource}: {e}")
+                    
+    except Exception as e:
+        print(f"Warning: NLTK setup failed: {e}")
+
+# Call the setup function right after imports
+setup_nltk_data()
+
 class HIPAALogger:
     """HIPAA-compliant audit logging system"""
     
@@ -300,7 +335,12 @@ class HIPAACompliantThesisAnalyzer:
                 self.use_ocr = False
     
     def _download_nltk_resources(self):
-        """Download required NLTK resources"""
+        """Download required NLTK resources to user directory"""
+        # Use the same user-writable directory
+        nltk_data_dir = os.path.join(os.path.expanduser('~'), 'nltk_data')
+        os.makedirs(nltk_data_dir, exist_ok=True)
+        nltk.data.path.append(nltk_data_dir)
+        
         resources = [
             ('tokenizers/punkt', 'punkt'),
             ('tokenizers/punkt_tab', 'punkt_tab'),
@@ -314,7 +354,8 @@ class HIPAACompliantThesisAnalyzer:
                 nltk.data.find(resource_path)
             except LookupError:
                 try:
-                    nltk.download(resource_name, quiet=True)
+                    nltk.download(resource_name, download_dir=nltk_data_dir, quiet=True)
+                    print(f"Downloaded NLTK resource: {resource_name}")
                 except Exception as e:
                     print(f"Warning: Failed to download {resource_name}: {e}")
     
