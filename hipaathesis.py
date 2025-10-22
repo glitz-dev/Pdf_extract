@@ -1,7 +1,46 @@
 import PyPDF2
 import re
 from collections import Counter
+import os
 import nltk
+
+# Set NLTK data path BEFORE any other NLTK imports
+def setup_nltk_data():
+    """Setup NLTK data directory in user-writable location"""
+    try:
+        # Create a user-writable directory for NLTK data
+        nltk_data_dir = os.path.join(os.path.expanduser('~'), 'nltk_data')
+        os.makedirs(nltk_data_dir, exist_ok=True)
+        
+        # Set NLTK data path to user directory - this must be done first
+        nltk.data.path.insert(0, nltk_data_dir)  # Use insert(0, ...) to make it first priority
+        
+        # Download required resources if not present
+        required_resources = [
+            'punkt',
+            'punkt_tab', 
+            'stopwords',
+            'wordnet',
+            'omw-1.4'
+        ]
+        
+        for resource in required_resources:
+            try:
+                nltk.data.find(f'tokenizers/{resource}' if 'punkt' in resource else f'corpora/{resource}')
+            except LookupError:
+                try:
+                    nltk.download(resource, download_dir=nltk_data_dir, quiet=True)
+                    print(f"Downloaded NLTK resource: {resource}")
+                except Exception as e:
+                    print(f"Warning: Could not download {resource}: {e}")
+                    
+    except Exception as e:
+        print(f"Warning: NLTK setup failed: {e}")
+
+# Call setup immediately after basic imports
+setup_nltk_data()
+
+# Now import NLTK modules after setup
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -43,41 +82,6 @@ warnings.filterwarnings('ignore')
 
 app = FastAPI(title='AI (PDF→Summary+QnA+Scores)', version='0.2.1')
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-def setup_nltk_data():
-    """Setup NLTK data directory in user-writable location"""
-    try:
-        # Create a user-writable directory for NLTK data
-        nltk_data_dir = os.path.join(os.path.expanduser('~'), 'nltk_data')
-        os.makedirs(nltk_data_dir, exist_ok=True)
-        
-        # Set NLTK data path to user directory
-        nltk.data.path.append(nltk_data_dir)
-        
-        # Download required resources if not present
-        required_resources = [
-            'punkt',
-            'punkt_tab', 
-            'stopwords',
-            'wordnet',
-            'omw-1.4'
-        ]
-        
-        for resource in required_resources:
-            try:
-                nltk.data.find(f'tokenizers/{resource}' if 'punkt' in resource else f'corpora/{resource}')
-            except LookupError:
-                try:
-                    nltk.download(resource, download_dir=nltk_data_dir, quiet=True)
-                    print(f"Downloaded NLTK resource: {resource}")
-                except Exception as e:
-                    print(f"Warning: Could not download {resource}: {e}")
-                    
-    except Exception as e:
-        print(f"Warning: NLTK setup failed: {e}")
-
-# Call the setup function right after imports
-setup_nltk_data()
 
 class HIPAALogger:
     """HIPAA-compliant audit logging system"""
