@@ -1,10 +1,13 @@
 FROM python:3.11-slim
 
-# Install system dependencies including Tesseract OCR
+# Install system dependencies including Tesseract OCR and build tools for sentencepiece
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-eng \
     libtesseract-dev \
+    build-essential \
+    cmake \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Set NLTK data directory environment variable

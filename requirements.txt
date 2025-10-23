@@ -8,6 +8,7 @@ Pillow==11.3.0
 pydantic==2.11.9
 PyPDF2==3.0.1
 pytesseract==0.3.13
+sentencepiece==0.2.0
 torch==2.8.0
 transformers==4.56.1
 uvicorn[standard]
