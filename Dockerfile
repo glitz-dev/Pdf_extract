@@ -19,6 +19,17 @@ COPY . /app
 # Create NLTK data directory with proper permissions
 RUN mkdir -p /app/nltk_data && chmod 777 /app/nltk_data
 
+# Create cache directories for transformers and torch with proper permissions
+RUN mkdir -p /app/.cache/huggingface && chmod 777 /app/.cache/huggingface
+RUN mkdir -p /app/.cache/torch && chmod 777 /app/.cache/torch
+RUN mkdir -p /root/.cache/huggingface && chmod 777 /root/.cache/huggingface
+RUN mkdir -p /root/.cache/torch && chmod 777 /root/.cache/torch
+
+# Set environment variables for cache directories
+ENV HF_HOME=/app/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
+ENV TORCH_HOME=/app/.cache/torch
+
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 

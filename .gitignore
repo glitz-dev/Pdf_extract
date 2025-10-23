@@ -50,3 +50,8 @@ Thumbs.db
 *.sqlite3
 # Files
 /thesis_1.pdf
+
+#Test scripts
+/rebuild_and_test.ps1
+/rebuild_and_test.sh
+/test_cache_fix.py

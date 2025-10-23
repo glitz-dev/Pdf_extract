@@ -4,6 +4,32 @@ from collections import Counter
 import os
 import nltk
 
+def setup_cache_directories():
+    """Setup cache directories for transformers and torch with proper permissions"""
+    try:
+        # Create cache directories in /app with proper permissions
+        cache_dirs = [
+            '/app/.cache/huggingface',
+            '/app/.cache/torch',
+            '/root/.cache/huggingface',
+            '/root/.cache/torch'
+        ]
+        
+        for cache_dir in cache_dirs:
+            os.makedirs(cache_dir, exist_ok=True)
+            # Set permissions to be writable
+            os.chmod(cache_dir, 0o777)
+        
+        # Set environment variables for cache directories
+        os.environ['HF_HOME'] = '/app/.cache/huggingface'
+        os.environ['TRANSFORMERS_CACHE'] = '/app/.cache/huggingface'
+        os.environ['TORCH_HOME'] = '/app/.cache/torch'
+        
+        print(f"Cache directories setup complete: {cache_dirs}")
+        
+    except Exception as e:
+        print(f"Warning: Cache directory setup failed: {e}")
+
 # Set NLTK data path BEFORE any other NLTK imports
 def setup_nltk_data():
     """Setup NLTK data directory in container-writable location"""
@@ -20,6 +46,9 @@ def setup_nltk_data():
         
         # Also set the NLTK_DATA environment variable
         os.environ['NLTK_DATA'] = nltk_data_dir
+        
+        # Setup cache directories for transformers and torch
+        setup_cache_directories()
         
         # Download required resources if not present
         required_resources = [
@@ -314,31 +343,55 @@ class HIPAACompliantThesisAnalyzer:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         self.model_name = "t5-small"
-        self.tokenizer = T5Tokenizer.from_pretrained(self.model_name)
-        self.model = T5ForConditionalGeneration.from_pretrained(self.model_name)
-        self.model.to(self.device)
+        
+        try:
+            # Try to load with explicit cache directory
+            cache_dir = '/app/.cache/huggingface'
+            self.tokenizer = T5Tokenizer.from_pretrained(self.model_name, cache_dir=cache_dir)
+            self.model = T5ForConditionalGeneration.from_pretrained(self.model_name, cache_dir=cache_dir)
+            self.model.to(self.device)
+            print("T5 model loaded successfully from cache")
+        except Exception as e:
+            print(f"Error loading T5 model: {e}")
+            print("Attempting to load with fallback cache directory...")
+            try:
+                # Fallback to default cache
+                self.tokenizer = T5Tokenizer.from_pretrained(self.model_name)
+                self.model = T5ForConditionalGeneration.from_pretrained(self.model_name)
+                self.model.to(self.device)
+                print("T5 model loaded with fallback cache")
+            except Exception as e2:
+                print(f"Failed to load T5 model: {e2}")
+                raise e2
 
         # Initialize pipelines
-        self.summarizer = pipeline(
-            "summarization",
-            model=self.model_name,
-            tokenizer=self.model_name,
-            device=0 if torch.cuda.is_available() else -1,
-            max_length=200,
-            min_length=150,
-            do_sample=True,
-            temperature=0.7
-        )
+        try:
+            self.summarizer = pipeline(
+                "summarization",
+                model=self.model_name,
+                tokenizer=self.model_name,
+                device=0 if torch.cuda.is_available() else -1,
+                max_length=200,
+                min_length=150,
+                do_sample=True,
+                temperature=0.7
+            )
 
-        self.qa_pipeline = pipeline(
-            "text2text-generation",
-            model=self.model_name,
-            tokenizer=self.model_name,
-            device=0 if torch.cuda.is_available() else -1,
-            max_length=512,
-            do_sample=True,
-            temperature=0.7
-        )
+            self.qa_pipeline = pipeline(
+                "text2text-generation",
+                model=self.model_name,
+                tokenizer=self.model_name,
+                device=0 if torch.cuda.is_available() else -1,
+                max_length=512,
+                do_sample=True,
+                temperature=0.7
+            )
+            print("Pipelines initialized successfully")
+        except Exception as e:
+            print(f"Error initializing pipelines: {e}")
+            # Create fallback pipelines
+            self.summarizer = None
+            self.qa_pipeline = None
 
         # Initialize BLIP if enabled
         if self.use_blip:
@@ -683,6 +736,12 @@ class HIPAACompliantThesisAnalyzer:
     def _generate_summary_secure(self, text):
         """Generate summary using local T5 model"""
         try:
+            if self.summarizer is None:
+                print("Summarizer not available, using fallback method")
+                # Fallback to extractive summary
+                sentences = re.split(r'[.!?]+', text)
+                return " ".join(sentences[:3]) + "..."
+            
             clean_text = re.sub(r'\s+', ' ', text).strip()
             
             # Chunk text for processing
@@ -712,6 +771,14 @@ class HIPAACompliantThesisAnalyzer:
         
         for question in questions:
             try:
+                if self.qa_pipeline is None:
+                    answers[question] = {
+                        'answer': 'Q&A pipeline not available - using fallback',
+                        'method': 'Fallback',
+                        'processed_securely': True
+                    }
+                    continue
+                
                 prompt = f"question: {question} context: {text[:1000]}"
                 
                 answer_result = self.qa_pipeline(
